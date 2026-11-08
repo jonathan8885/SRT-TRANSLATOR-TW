@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>字幕翻譯室 · SRT 英譯繁中</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3F5F4;
+    --ink:#16211F;
+    --ink-soft:#5A6763;
+    --line:#D8DEDC;
+    --red:#C8102E;        /* 戲院紅 */
+    --teal:#0E6B64;       /* 膠卷青 */
+    --screen:#0F1216;     /* 銀幕黑 */
+    --sub-yellow:#FFE066; /* 台灣經典黃字幕 */
+    --card:#FFFFFF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Noto Sans TC',-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;
+    line-height:1.6;
+    min-height:100vh;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:40px 20px 80px}
+
+  /* ── 頁首 ── */
+  header{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;
+    border-bottom:3px solid var(--ink);padding-bottom:18px;margin-bottom:28px}
+  h1{font-family:'Noto Serif TC',serif;font-weight:900;font-size:clamp(26px,5vw,38px);letter-spacing:.04em}
+  h1 .en{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:.42em;color:var(--red);
+    letter-spacing:.18em;display:block;margin-top:2px}
+  .reel{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft);letter-spacing:.12em}
+
+  /* ── 上傳區 ── */
+  .drop{
+    border:2px dashed var(--ink);border-radius:12px;background:var(--card);
+    padding:36px 24px;text-align:center;cursor:pointer;transition:all .18s ease;
+  }
+  .drop:hover,.drop.over{border-color:var(--red);background:#FFF7F1}
+  .drop .big{font-size:17px;font-weight:700}
+  .drop .hint{font-size:13px;color:var(--ink-soft);margin-top:6px}
+  .drop.loaded{border-style:solid;border-color:var(--teal);background:#F0F7F6;cursor:default}
+  .filemeta{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--teal);margin-top:8px}
+  input[type=file]{display:none}
+
+  /* ── 選項列 ── */
+  .options{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:20px 0}
+  .opt-group{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);
+    border-radius:8px;padding:8px 14px;font-size:14px}
+  .opt-group label{font-weight:500;color:var(--ink-soft)}
+  select{font-family:inherit;font-size:14px;border:none;background:transparent;color:var(--ink);
+    font-weight:700;cursor:pointer;outline:none}
+  button.go{
+    margin-left:auto;background:var(--red);color:#fff;border:none;border-radius:8px;
+    padding:12px 28px;font-family:inherit;font-size:16px;font-weight:700;letter-spacing:.08em;
+    cursor:pointer;transition:transform .1s ease, background .15s ease;
+  }
+  button.go:hover:not(:disabled){background:#A50D26;transform:translateY(-1px)}
+  button.go:disabled{background:#C9CFCD;cursor:not-allowed}
+
+  /* ── 進度 ── */
+  .progress{display:none;margin:6px 0 18px}
+  .progress.show{display:block}
+  .bar-track{height:8px;background:var(--line);border-radius:99px;overflow:hidden}
+  .bar-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--teal),var(--red));
+    border-radius:99px;transition:width .4s ease}
+  .bar-label{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft);margin-top:6px;
+    letter-spacing:.08em}
+
+  /* ── 銀幕預覽（signature）── */
+  .screen{
+    display:none;background:var(--screen);border-radius:10px;padding:0;overflow:hidden;
+    margin:22px 0;box-shadow:0 10px 30px rgba(15,18,22,.25);
+  }
+  .screen.show{display:block}
+  .screen .sprocket{display:flex;justify-content:space-between;padding:8px 12px}
+  .screen .sprocket span{width:14px;height:10px;background:var(--paper);border-radius:3px;opacity:.85}
+  .screen .stage{min-height:150px;display:flex;flex-direction:column;justify-content:flex-end;
+    align-items:center;padding:24px 28px 26px;text-align:center}
+  .screen .src{color:#C7CDD4;font-size:14px;margin-bottom:8px;font-style:italic;max-width:640px}
+  .screen .zh{
+    color:var(--sub-yellow);font-size:clamp(18px,3.4vw,24px);font-weight:700;
+    text-shadow:0 2px 4px rgba(0,0,0,.9), 0 0 2px #000;max-width:640px;letter-spacing:.02em;
+    min-height:1.5em;
+  }
+  .screen .tc{font-family:'IBM Plex Mono',monospace;color:#6E7681;font-size:11px;margin-top:12px;letter-spacing:.15em}
+
+  /* ── 字幕表 ── */
+  .table-wrap{display:none;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .table-wrap.show{display:block}
+  .table-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;
+    border-bottom:1px solid var(--line)}
+  .table-head .title{font-weight:700;font-size:15px}
+  .table-head .note{font-size:12px;color:var(--ink-soft)}
+  .cue{display:grid;grid-template-columns:110px 1fr 1fr;gap:0;border-bottom:1px solid var(--line);font-size:14px}
+  .cue:last-child{border-bottom:none}
+  .cue .t{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);padding:12px 10px 12px 16px;
+    letter-spacing:.02em}
+  .cue .en{padding:12px 14px;color:var(--ink-soft);border-left:1px solid var(--line)}
+  .cue .zh{padding:12px 14px;border-left:1px solid var(--line);font-weight:500;white-space:pre-wrap;cursor:text}
+  .cue .zh:focus{outline:2px solid var(--teal);outline-offset:-2px;background:#F0F7F6}
+  .cue .zh:empty::before{content:attr(data-ph);color:#B3BAB8;font-style:italic;font-weight:400}
+  .cue .zh.failed:empty::before{color:var(--red)}
+  @media (max-width:640px){
+    .cue{grid-template-columns:1fr}
+    .cue .t{padding-bottom:0}
+    .cue .en,.cue .zh{border-left:none}
+  }
+
+  /* ── 下載列 ── */
+  .downloads{display:none;gap:12px;margin-top:20px;flex-wrap:wrap}
+  .downloads.show{display:flex}
+  .downloads button{
+    background:var(--ink);color:var(--paper);border:none;border-radius:8px;padding:12px 22px;
+    font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:background .15s;
+  }
+  .downloads button:hover{background:var(--teal)}
+  .downloads button.alt{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+  .downloads button.alt:hover{background:var(--ink);color:var(--paper)}
+
+  .status{font-size:13px;color:var(--ink-soft);margin-top:10px;min-height:1.4em}
+  .status.err{color:var(--red);font-weight:500}
+
+  /* ── 備用匯出面板 ── */
+  .export-panel{display:none;background:var(--card);border:2px solid var(--teal);border-radius:10px;
+    padding:16px;margin-top:14px}
+  .export-panel.show{display:block}
+  .export-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+  .export-title{font-weight:700;font-size:14px}
+  .export-title span{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:12px;color:var(--teal)}
+  .export-hint{font-size:12px;color:var(--ink-soft);margin-top:2px}
+  .export-panel textarea{width:100%;height:180px;font-family:'IBM Plex Mono',monospace;font-size:12px;
+    border:1px solid var(--line);border-radius:6px;padding:10px;resize:vertical;color:var(--ink);background:#FAFBFB}
+  .export-panel .copy{margin-top:10px;background:var(--teal);color:#fff;border:none;border-radius:8px;
+    padding:10px 20px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+  .export-panel .copy:hover{background:#0A544E}
+  .export-panel .x{background:transparent;border:none;font-size:16px;cursor:pointer;color:var(--ink-soft);
+    padding:4px 8px;line-height:1}
+  .export-panel .x:hover{color:var(--red)}
+
+  /* ── 連線設定 ── */
+  .settings{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin-bottom:18px}
+  .settings summary{cursor:pointer;font-weight:700;font-size:14px}
+  .settings .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:12px;font-size:14px}
+  .settings .row label{font-weight:500;color:var(--ink-soft);min-width:64px}
+  .settings input[type=password],.settings input[type=text]{flex:1;min-width:220px;
+    font-family:'IBM Plex Mono',monospace;font-size:13px;border:1px solid var(--line);border-radius:6px;
+    padding:8px 10px;color:var(--ink);background:#FAFBFB}
+  .settings .remember{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft);cursor:pointer}
+  .settings .note{font-size:12px;color:var(--ink-soft);margin-top:10px;line-height:1.7}
+
+  .settings select{flex:1;min-width:220px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;
+    background:#FAFBFB;font-weight:500}
+  .settings select:disabled,.opt-group select:disabled{opacity:.5;cursor:not-allowed}
+
+  /* ── 全部取代 ── */
+  .replace-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 18px;
+    border-bottom:1px solid var(--line);font-size:13px;color:var(--ink-soft)}
+  .replace-bar input{font-family:inherit;font-size:13px;border:1px solid var(--line);border-radius:6px;
+    padding:6px 8px;width:140px;color:var(--ink)}
+  .replace-bar button{background:var(--ink);color:var(--paper);border:none;border-radius:6px;padding:7px 14px;
+    font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
+  .replace-bar button:hover{background:var(--teal)}
+
+  footer{margin-top:48px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);
+    letter-spacing:.1em;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>字幕翻譯室<span class="en">SRT · EN → 台灣繁體中文</span></h1>
+    <div class="reel">REEL 01 &nbsp;·&nbsp; 24 FPS</div>
+  </header>
+
+  <details class="settings" id="settings" open>
+    <summary>翻譯引擎與連線設定</summary>
+    <div class="row">
+      <label for="engineSel">引擎</label>
+      <select id="engineSel">
+        <option value="builtin">免費・Chrome 內建翻譯（本機執行，草稿品質）</option>
+        <option value="claude">進階・Claude（需自己的 Anthropic API key）</option>
+      </select>
+    </div>
+    <div class="note" id="engineNote"></div>
+    <div class="row claude-only">
+      <label for="apiKey">API key</label>
+      <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+    </div>
+    <div class="row claude-only">
+      <label for="modelName">模型</label>
+      <input type="text" id="modelName" value="claude-sonnet-5-5" spellcheck="false">
+    </div>
+    <div class="row claude-only">
+      <label class="remember"><input type="checkbox" id="rememberKey"> 記住在這個瀏覽器（公用電腦請不要勾選）</label>
+    </div>
+    <div class="note claude-only">
+      金鑰與字幕文字會從你的瀏覽器直接送到 Anthropic 的 API 進行翻譯，不會經過其他伺服器；費用算在你自己的帳戶，建議先在 Anthropic Console 設定用量上限。請只處理你有權使用的字幕。
+    </div>
+  </details>
+
+  <div class="drop" id="drop">
+    <div class="big" id="dropBig">拖曳 .srt 檔案到這裡，或點擊選擇檔案</div>
+    <div class="hint" id="dropHint">支援標準 SubRip 格式（UTF-8）</div>
+    <div class="filemeta" id="fileMeta"></div>
+    <input type="file" id="fileInput" accept=".srt,.txt">
+  </div>
+
+  <div class="options">
+    <div class="opt-group">
+      <label>翻譯風格</label>
+      <select id="styleSel">
+        <option value="natural">自然口語（預設）</option>
+        <option value="formal">正式書面</option>
+        <option value="drama">戲劇化・情感強</option>
+      </select>
+    </div>
+    <div class="opt-group">
+      <label>輸出</label>
+      <select id="outputSel">
+        <option value="zh">純中文</option>
+        <option value="bi-en-top">雙語（英上中下）</option>
+        <option value="bi-zh-top">雙語（中上英下）</option>
+      </select>
+    </div>
+    <button class="go" id="goBtn" disabled>開始翻譯</button>
+  </div>
+
+  <div class="progress" id="progress">
+    <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+    <div class="bar-label" id="barLabel">TRANSLATING…</div>
+  </div>
+
+  <div class="downloads" id="downloads">
+    <button id="dlBtn">下載翻譯字幕 .srt</button>
+    <button class="alt" id="retryBtn" style="display:none">重試失敗段落</button>
+  </div>
+  <div class="status" id="status"></div>
+
+  <div class="export-panel" id="exportPanel">
+    <div class="export-head">
+      <div>
+        <div class="export-title">字幕內容 · <span id="exportName"></span></div>
+        <div class="export-hint">複製後貼到任何文字編輯器（記事本、TextEdit），另存新檔並確認副檔名是 .srt、編碼為 UTF-8</div>
+      </div>
+      <button id="closeExport" class="x">✕</button>
+    </div>
+    <textarea id="exportText" readonly spellcheck="false"></textarea>
+    <button id="copyBtn" class="copy">複製全部</button>
+  </div>
+
+  <div class="screen" id="screen">
+    <div class="sprocket"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <div class="stage">
+      <div class="src" id="scrSrc"></div>
+      <div class="zh" id="scrZh"></div>
+      <div class="tc" id="scrTc"></div>
+    </div>
+    <div class="sprocket"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+  </div>
+
+  <div class="table-wrap" id="tableWrap">
+    <div class="table-head">
+      <div class="title">字幕對照</div>
+      <div class="note">中文欄可直接點擊修改</div>
+    </div>
+    <div class="replace-bar" id="replaceBar">
+      <span>批次修正</span>
+      <input id="repFrom" placeholder="尋找（例：互聯網）" spellcheck="false">
+      <span>→</span>
+      <input id="repTo" placeholder="取代為（例：網路）" spellcheck="false">
+      <button id="repBtn">全部取代</button>
+      <span id="repInfo"></span>
+    </div>
+    <div id="cueList"></div>
+  </div>
+
+  <footer>SUBTITLE ROOM · POWERED BY CLAUDE · 台灣用語校準</footer>
+</div>
+
+<script>
+let cues = [];          // {idx, time, text(en), zh, status}
+let fileName = 'subtitles';
+let translating = false;
+let previewTimer = null;
+let connectionDown = false;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const $ = id => document.getElementById(id);
+const drop = $('drop'), fileInput = $('fileInput');
+
+/* ── 檔案載入 ── */
+drop.addEventListener('click', () => { if (!drop.classList.contains('loaded') || !translating) fileInput.click(); });
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('over');
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files.length) loadFile(fileInput.files[0]); });
+
+function loadFile(file) {
+  fileName = file.name.replace(/\.srt$/i, '');
+  const reader = new FileReader();
+  reader.onload = () => {
+    const parsed = parseSRT(reader.result);
+    if (!parsed.length) {
+      setStatus('無法解析這個檔案，請確認是標準 SRT 格式（序號、時間軸、字幕文字）', true);
+      return;
+    }
+    cues = parsed;
+    drop.classList.add('loaded');
+    $('dropBig').textContent = '已載入字幕檔';
+    $('dropHint').textContent = '點擊可更換檔案';
+    $('fileMeta').textContent = `${file.name} · ${cues.length} 句字幕`;
+    $('goBtn').disabled = false;
+    $('goBtn').textContent = '開始翻譯';
+    renderTable();
+    $('tableWrap').classList.add('show');
+    $('downloads').classList.remove('show');
+    setStatus('');
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+/* ── SRT 解析 ── */
+function parseSRT(raw) {
+  const text = raw.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const blocks = text.split(/\n{2,}/);
+  const out = [];
+  const timeRe = /(\d{1,2}):(\d{1,2}):(\d{1,2})[,.](\d{1,3})\s*-->\s*(\d{1,2}):(\d{1,2}):(\d{1,2})[,.](\d{1,3})/;
+  const pad = (n, w) => String(n).padStart(w, '0');
+  const fmt = (h, m, s, ms) => `${pad(h,2)}:${pad(m,2)}:${pad(s,2)},${(ms + '00').slice(0,3)}`;
+  for (const block of blocks) {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    let ti = lines.findIndex(l => timeRe.test(l));
+    if (ti === -1) continue;
+    const m = lines[ti].match(timeRe);
+    const textLines = lines.slice(ti + 1);
+    if (!textLines.length) continue;
+    const startMs = ((+m[1]*3600)+(+m[2]*60)+(+m[3]))*1000 + +(m[4]+'00').slice(0,3);
+    out.push({
+      idx: out.length + 1,
+      time: `${fmt(m[1],m[2],m[3],m[4])} --> ${fmt(m[5],m[6],m[7],m[8])}`,
+      startMs,
+      text: textLines.join('\n'),
+      zh: '', status: 'pending'
+    });
+  }
+  // 依開始時間排序：來源檔若順序錯亂，mpv/IINA 不會自動糾正
+  out.sort((a, b) => a.startMs - b.startMs);
+  out.forEach((c, i) => { c.idx = i + 1; });
+  return out;
+}
+
+/* ── 表格渲染 ── */
+function renderTable() {
+  const list = $('cueList');
+  list.innerHTML = '';
+  for (const c of cues) {
+    const row = document.createElement('div');
+    row.className = 'cue';
+    row.innerHTML = `
+      <div class="t">${c.time.split(' --> ')[0]}</div>
+      <div class="en">${escapeHtml(c.text)}</div>
+      <div class="zh" contenteditable="true" data-idx="${c.idx}" data-ph="（待翻譯，也可直接點擊輸入）"></div>`;
+    list.appendChild(row);
+  }
+}
+
+// 只綁一次：任何中文欄輸入都同步回資料
+$('cueList').addEventListener('input', e => {
+  const el = e.target.closest('.zh');
+  if (!el) return;
+  const c = cues[+el.dataset.idx - 1];
+  c.zh = el.innerText.trim();
+  if (c.zh) { c.status = 'done'; el.classList.remove('failed'); }
+});
+
+function updateRow(c) {
+  const el = document.querySelector(`.zh[data-idx="${c.idx}"]`);
+  if (!el) return;
+  el.classList.remove('failed');
+  if (c.status === 'done') {
+    el.textContent = c.zh;
+  } else if (c.status === 'failed') {
+    el.classList.add('failed');
+    el.textContent = '';
+    el.setAttribute('data-ph', '（翻譯失敗，點這裡可手動輸入）');
+  }
+}
+
+/* ── 翻譯流程 ── */
+let overwriteArmed = false;
+$('goBtn').addEventListener('click', () => {
+  // 已有翻譯（可能含人工修改）時，要再按一次才會覆蓋
+  if (cues.some(c => c.status === 'done') && !overwriteArmed) {
+    overwriteArmed = true;
+    $('goBtn').textContent = '會覆蓋現有翻譯與修改，再按一次確認';
+    setTimeout(() => {
+      overwriteArmed = false;
+      if (!translating) $('goBtn').textContent = '重新翻譯全部';
+    }, 4000);
+    return;
+  }
+  overwriteArmed = false;
+  startTranslation(false);
+});
+$('retryBtn').addEventListener('click', () => startTranslation(true));
+
+async function startTranslation(retryOnly) {
+  if (translating) return;
+  const engine = $('engineSel').value;
+  if (engine === 'claude') {
+    if (!$('apiKey').value.trim()) {
+      $('settings').open = true;
+      setStatus('請先在上方「翻譯引擎與連線設定」貼上你的 Anthropic API key，或改用免費的 Chrome 內建翻譯', true);
+      return;
+    }
+    saveKeyPref();
+  }
+  translating = true;
+  connectionDown = false;
+  $('goBtn').disabled = true;
+  $('goBtn').textContent = '翻譯中…';
+  $('retryBtn').style.display = 'none';
+  $('progress').classList.add('show');
+  $('downloads').classList.remove('show');
+  clearInterval(previewTimer);
+  setStatus('');
+
+  const targets = retryOnly ? cues.filter(c => c.status !== 'done') : cues.slice();
+  if (!retryOnly) targets.forEach(c => { c.status = 'pending'; });
+
+  const BATCH = 20;
+  const batches = [];
+  for (let i = 0; i < targets.length; i += BATCH) batches.push(targets.slice(i, i + BATCH));
+
+  let done = 0;
+  for (let b = 0; b < batches.length; b++) {
+    const batch = batches[b];
+    // 前文脈絡：取本批第一句之前的兩句
+    const firstIdx = batch[0].idx;
+    const ctx = cues.slice(Math.max(0, firstIdx - 3), firstIdx - 1).map(c => c.text);
+    await translateBatch(batch, ctx);
+    // 補漏：只重試沒回來的句子
+    let missing = batch.filter(c => c.status !== 'done');
+    if (missing.length && !connectionDown) { await sleep(800); await translateBatch(missing, ctx); }
+    missing = batch.filter(c => c.status !== 'done');
+    missing.forEach(c => { c.status = 'failed'; updateRow(c); });
+
+    // 連線整個掛掉時直接中止，不要空跑上百批
+    if (connectionDown && b === 0) {
+      translating = false;
+      $('goBtn').disabled = false;
+      $('barLabel').textContent = 'STOPPED · 已中止';
+      return;
+    }
+
+    done += batch.length;
+    const pct = Math.round(done / targets.length * 100);
+    $('barFill').style.width = pct + '%';
+    $('barLabel').textContent = `TRANSLATING… ${done}/${targets.length}（${pct}%）`;
+    await sleep(300); // 稍微間隔，避免觸發速率限制
+  }
+
+  translating = false;
+  $('goBtn').disabled = false;
+  $('goBtn').textContent = '重新翻譯全部';
+  $('barLabel').textContent = 'DONE · 翻譯完成';
+  $('downloads').classList.add('show');
+
+  const failed = cues.filter(c => c.status !== 'done').length;
+  if (failed) {
+    $('retryBtn').style.display = '';
+    setStatus(`有 ${failed} 句翻譯失敗，可點「重試失敗段落」，或直接在表格中手動填入`, true);
+  } else {
+    setStatus($('engineSel').value === 'builtin'
+      ? '完成。內建翻譯屬於草稿品質，請逐句檢查；中文欄可直接修改，常見錯誤可用上方「批次修正」一次改完'
+      : '全部完成！中文欄可直接點擊微調，再下載檔案');
+  }
+  startPreviewLoop();
+}
+
+/* ── 免費引擎：Chrome 內建翻譯（在使用者自己的電腦上執行）── */
+// 常見的大陸用語 → 台灣用語。只放把握度高的詞；有歧義的詞（例如「地鐵」「運行」）刻意不放
+const TW_GLOSSARY = [
+  ['互聯網', '網路'], ['網絡', '網路'], ['軟件', '軟體'], ['硬件', '硬體'], ['視頻', '影片'],
+  ['服務器', '伺服器'], ['打印', '列印'], ['鼠標', '滑鼠'], ['默認', '預設'], ['出租車', '計程車'],
+  ['公交車', '公車'], ['土豆', '馬鈴薯'], ['激光', '雷射'], ['博客', '部落格'], ['鏈接', '連結'],
+  ['文檔', '文件'], ['兼容', '相容']
+];
+
+// 清掉內建翻譯常見的格式問題，並套用用語替換
+function polishBuiltin(s) {
+  let out = String(s || '').trim();
+  for (const [from, to] of TW_GLOSSARY) out = out.split(from).join(to);
+  out = out.replace(/([。！？，、；：…])\s+/g, '$1');          // 全形標點後多餘的空格
+  out = out.replace(/([一-鿿])\s+(?=[一-鿿])/g, '$1'); // 中文字之間的空格
+  out = out.replace(/。\s*$/, '');                              // 句尾不加句號
+  return out.trim();
+}
+
+let builtinTranslator = null;
+async function getBuiltinTranslator() {
+  if (builtinTranslator) return builtinTranslator;
+  const opts = { sourceLanguage: 'en', targetLanguage: 'zh-Hant' };
+  const avail = await Translator.availability(opts);
+  if (avail === 'unavailable') throw new Error('這個瀏覽器無法使用 英文→繁體中文 的內建翻譯');
+  builtinTranslator = await Translator.create({
+    ...opts,
+    monitor(m) {
+      m.addEventListener('downloadprogress', e => {
+        $('barLabel').textContent = `DOWNLOADING LANGUAGE PACK… ${Math.round(e.loaded * 100)}%（只有第一次需要下載）`;
+      });
+    }
+  });
+  return builtinTranslator;
+}
+
+async function translateBatchBuiltin(batch) {
+  try {
+    const t = await getBuiltinTranslator();
+    let any = false;
+    for (const c of batch) {
+      try {
+        // 兩行字幕多半是同一句話，合併成一行再翻
+        const out = polishBuiltin(await t.translate(c.text.replace(/\n/g, ' ')));
+        if (!out) continue;
+        c.zh = out; c.status = 'done';
+        updateRow(c); showOnScreen(c);
+        any = true;
+      } catch (e) { console.error('單句翻譯失敗：', e); }
+    }
+    return any;
+  } catch (e) {
+    console.error('內建翻譯失敗：', e);
+    connectionDown = true;
+    setStatus('內建翻譯無法使用：' + e.message + '。可以改用「進階・Claude」引擎。', true);
+    return false;
+  }
+}
+
+async function translateBatch(batch, ctx) {
+  if ($('engineSel').value === 'builtin') return translateBatchBuiltin(batch);
+  const numbered = batch.map(c => `[${c.idx}] ${c.text.replace(/\n/g, ' / ')}`).join('\n');
+  const styleMap = {
+    natural: '自然口語，像台灣人日常說話',
+    formal: '正式書面，用語嚴謹',
+    drama: '戲劇化，情感濃烈，適合劇情片'
+  };
+  const style = styleMap[$('styleSel').value];
+
+  const prompt = `將以下英文字幕譯成台灣繁體中文字幕。要求：台灣慣用詞彙（計程車、影片、網路，嚴禁大陸用語）；語氣${style}；簡潔易讀；句尾不加句號（？！…可保留）；過長句子用「 / 」分行；人名地名用台灣常見譯法；粗話照原文語氣譯出、不淨化。
+
+${ctx.length ? '前文（僅供理解）：' + ctx.join('｜') + '\n\n' : ''}${numbered}
+
+每句一行輸出「[編號] 譯文」，不要任何其他文字。`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': $('apiKey').value.trim(),
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: $('modelName').value.trim() || 'claude-sonnet-5-5',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (response.status === 429 || response.status === 529) {
+      setStatus('翻譯服務暫時忙碌，等待 15 秒後自動重試…', true);
+      await sleep(15000);
+      setStatus('');
+      return false; // 交給補漏機制重試
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      // 金鑰錯誤、模型名稱錯誤這類問題重試也沒用，直接讓第一批中止
+      const fatal = ['authentication_error', 'permission_error', 'not_found_error', 'invalid_request_error']
+        .includes(data.error.type);
+      if (fatal) connectionDown = true;
+      setStatus('API 回報錯誤：' + (data.error.message || JSON.stringify(data.error)) +
+        (fatal ? '（請檢查 API key、模型名稱與帳戶額度）' : ''), true);
+      return false;
+    }
+
+    const text = (data.content || []).filter(x => x.type === 'text').map(x => x.text).join('\n');
+    // 逐行解析 [編號] 翻譯 —— 即使回應被截斷，前面已完成的句子仍可保留
+    const lineRe = /^\s*\[(\d+)\]\s*(.+)$/;
+    let any = false;
+    for (const line of text.split('\n')) {
+      const m = line.match(lineRe);
+      if (!m) continue;
+      const c = cues[+m[1] - 1];
+      if (!c) continue;
+      c.zh = m[2].replace(/\s*\/\s*/g, '\n').trim();
+      c.status = 'done';
+      updateRow(c);
+      showOnScreen(c);
+      any = true;
+    }
+    if (!any) console.error('無法解析回應：', text.slice(0, 300));
+    return any;
+  } catch (e) {
+    console.error('Batch failed:', e);
+    connectionDown = true;
+    setStatus('無法連線到翻譯服務（' + e.message + '）。請檢查網路連線與 API key；如果在公司或學校網路，api.anthropic.com 可能被防火牆擋住。', true);
+    return false;
+  }
+}
+
+/* ── 銀幕預覽 ── */
+function showOnScreen(c) {
+  $('screen').classList.add('show'); // 有內容才亮銀幕
+  $('scrSrc').textContent = c.text.replace(/\n/g, ' ');
+  $('scrZh').textContent = c.zh.replace(/\n/g, ' ');
+  $('scrTc').textContent = c.time;
+}
+function startPreviewLoop() {
+  const doneCues = cues.filter(c => c.status === 'done');
+  if (!doneCues.length) return;
+  let i = 0;
+  clearInterval(previewTimer);
+  previewTimer = setInterval(() => {
+    showOnScreen(doneCues[i % doneCues.length]);
+    i++;
+  }, 3200);
+}
+
+/* ── 下載 ── */
+function buildSRT() {
+  const mode = $('outputSel').value;
+  const parts = cues.map((c, n) => {
+    const zh = c.zh || c.text; // 失敗的保留英文
+    let body;
+    if (mode === 'zh') body = zh;
+    else if (mode === 'bi-en-top') body = c.text + '\n' + zh;
+    else body = zh + '\n' + c.text;
+    return `${n + 1}\n${c.time}\n${body}`;
+  });
+  return (parts.join('\n\n') + '\n').replace(/\n/g, '\r\n'); // CRLF：SRT 標準行尾，相容性最好
+}
+
+$('dlBtn').addEventListener('click', () => {
+  const srt = buildSRT();
+  const mode = $('outputSel').value;
+  const suffix = mode === 'zh' ? '.zh-TW' : '.zh-TW.bilingual';
+  const fname = fileName + suffix + '.srt';
+
+  // 先嘗試直接下載
+  let triggered = false;
+  try {
+    const blob = new Blob(['\uFEFF' + srt], { type: 'application/octet-stream' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    triggered = true;
+  } catch (e) { console.error('下載失敗：', e); }
+
+  // 無論如何都打開備用匯出面板（預覽環境常會擋下載）
+  $('exportName').textContent = fname;
+  $('exportText').value = srt;
+  $('exportPanel').classList.add('show');
+  setStatus(triggered
+    ? '如果沒有跳出下載視窗，用下方的「複製全部」把內容貼到文字編輯器，另存成 ' + fname
+    : '這個環境擋住了直接下載，請用下方的「複製全部」把內容貼到文字編輯器，另存成 ' + fname);
+});
+
+$('copyBtn').addEventListener('click', async () => {
+  const ta = $('exportText');
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    ok = true;
+  } catch (e) {
+    ta.focus(); ta.select();
+    try { ok = document.execCommand('copy'); } catch (e2) {}
+  }
+  $('copyBtn').textContent = ok ? '已複製 ✓' : '複製失敗，請手動全選複製';
+  setTimeout(() => { $('copyBtn').textContent = '複製全部'; }, 2500);
+});
+
+$('closeExport').addEventListener('click', () => $('exportPanel').classList.remove('show'));
+
+/* ── 引擎切換 ── */
+const hasBuiltin = ('Translator' in self);
+function applyEngineUI() {
+  const builtin = $('engineSel').value === 'builtin';
+  document.querySelectorAll('.claude-only').forEach(el => { el.style.display = builtin ? 'none' : ''; });
+  $('styleSel').disabled = builtin;
+  $('engineNote').textContent = builtin
+    ? '翻譯在你自己的電腦上進行，不需要 API key，字幕不會上傳。第一次使用要下載語言包。品質屬草稿級，不支援風格選項；想要更口語、更貼近台灣用語，請改用進階引擎。'
+    : '';
+}
+(function initEngine() {
+  const sel = $('engineSel');
+  if (!hasBuiltin) {
+    const opt = sel.querySelector('option[value="builtin"]');
+    opt.disabled = true;
+    opt.textContent += '（此瀏覽器不支援，需要桌面版 Chrome）';
+    sel.value = 'claude';
+  }
+  sel.addEventListener('change', applyEngineUI);
+  applyEngineUI();
+})();
+
+/* ── 批次修正：把所有中文欄的某段文字一次換掉 ── */
+$('repBtn').addEventListener('click', () => {
+  const from = $('repFrom').value, to = $('repTo').value;
+  if (!from) { $('repInfo').textContent = '請先輸入要尋找的文字'; return; }
+  let n = 0;
+  for (const c of cues) {
+    if (c.zh && c.zh.includes(from)) {
+      const parts = c.zh.split(from);
+      n += parts.length - 1;
+      c.zh = parts.join(to);
+      c.status = 'done';
+      updateRow(c);
+    }
+  }
+  $('repInfo').textContent = n ? `已取代 ${n} 處` : '沒有找到這段文字';
+});
+
+/* ── 連線設定（金鑰只存在使用者自己的瀏覽器）── */
+const LS_KEY = 'srtRoom.apiKey', LS_MODEL = 'srtRoom.model';
+function saveKeyPref() {
+  try {
+    if ($('rememberKey').checked) {
+      localStorage.setItem(LS_KEY, $('apiKey').value.trim());
+      localStorage.setItem(LS_MODEL, $('modelName').value.trim());
+    } else {
+      localStorage.removeItem(LS_KEY);
+      localStorage.removeItem(LS_MODEL);
+    }
+  } catch (e) { /* 隱私模式或被封鎖時略過 */ }
+}
+(function restoreKeyPref() {
+  try {
+    const k = localStorage.getItem(LS_KEY), m = localStorage.getItem(LS_MODEL);
+    if (k) {
+      $('apiKey').value = k; $('rememberKey').checked = true; $('settings').open = false;
+      $('engineSel').value = 'claude'; applyEngineUI(); // 有存過金鑰的人，預設回到進階引擎
+    }
+    if (m) $('modelName').value = m;
+  } catch (e) { /* 同上 */ }
+})();
+
+/* ── 工具 ── */
+function setStatus(msg, isErr) {
+  const s = $('status');
+  s.textContent = msg;
+  s.className = 'status' + (isErr ? ' err' : '');
+}
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+</script>
+</body>
+</html>
