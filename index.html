@@ -3,7 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>字幕翻譯室 · SRT 英譯繁中</title>
+<title>字幕翻譯室｜SRT 英文字幕翻譯成台灣繁體中文</title>
+<meta name="description" content="把英文 SRT 字幕翻成台灣繁體中文的免費網頁工具。可用 Chrome 內建翻譯在本機翻譯，或使用自己的 Claude API key 取得更口語的台灣用語；翻完可逐句修改並下載 .srt。">
+<link rel="canonical" href="https://jonathan8885.github.io/SRT-TRANSLATOR-TW/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:site_name" content="字幕翻譯室">
+<meta property="og:title" content="字幕翻譯室｜SRT 英文字幕翻譯成台灣繁體中文">
+<meta property="og:description" content="免費的網頁工具：把英文 SRT 字幕翻成台灣用語的繁體中文，可逐句修改再下載。">
+<meta property="og:url" content="https://jonathan8885.github.io/SRT-TRANSLATOR-TW/">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"字幕翻譯室","description":"把英文 SRT 字幕翻成台灣繁體中文的免費網頁工具，可逐句修改並下載翻譯後的字幕。","url":"https://jonathan8885.github.io/SRT-TRANSLATOR-TW/","applicationCategory":"UtilitiesApplication","operatingSystem":"Any","inLanguage":"zh-Hant-TW","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -34,7 +46,6 @@
   h1{font-family:'Noto Serif TC',serif;font-weight:900;font-size:clamp(26px,5vw,38px);letter-spacing:.04em}
   h1 .en{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:.42em;color:var(--red);
     letter-spacing:.18em;display:block;margin-top:2px}
-  .reel{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft);letter-spacing:.12em}
 
   /* ── 上傳區 ── */
   .drop{
@@ -167,6 +178,12 @@
     font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
   .replace-bar button:hover{background:var(--teal)}
 
+  .about{margin-top:44px;padding-top:22px;border-top:1px solid var(--line);font-size:13px;
+    color:var(--ink-soft);line-height:1.9}
+  .about h2{font-family:'Noto Serif TC',serif;font-size:16px;color:var(--ink);margin-bottom:8px}
+  .about ul{margin:8px 0 0 18px}
+  .about a{color:var(--teal)}
+
   footer{margin-top:48px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);
     letter-spacing:.1em;text-align:center}
 </style>
@@ -176,7 +193,6 @@
 
   <header>
     <h1>字幕翻譯室<span class="en">SRT · EN → 台灣繁體中文</span></h1>
-    <div class="reel">REEL 01 &nbsp;·&nbsp; 24 FPS</div>
   </header>
 
   <details class="settings" id="settings" open>
@@ -280,6 +296,17 @@
     </div>
     <div id="cueList"></div>
   </div>
+
+  <section class="about">
+    <h2>字幕翻譯室是什麼？</h2>
+    <p>這是一個免費的網頁工具，把英文 SRT 字幕翻成台灣慣用語的繁體中文。翻完之後可以直接在表格裡逐句修改，再下載成新的 .srt 檔，不需要註冊帳號。</p>
+    <ul>
+      <li><strong>免費模式：</strong>使用桌面版 Chrome 內建翻譯，在你自己的電腦上翻譯，字幕不會上傳。品質屬草稿級，建議逐句檢查。</li>
+      <li><strong>進階模式：</strong>貼上你自己的 Anthropic API key，使用 Claude 翻譯，可選自然口語、正式書面或戲劇化風格。</li>
+      <li><strong>台灣用語：</strong>免費模式會自動把常見的中國用語換成台灣用語，並可用「批次修正」一次改掉重複的錯誤。</li>
+    </ul>
+    <p>請只處理你有權使用的字幕。原始碼以 MIT 授權公開在 <a href="https://github.com/jonathan8885/SRT-TRANSLATOR-TW" target="_blank" rel="noopener">GitHub</a>。</p>
+  </section>
 
   <footer>SUBTITLE ROOM · POWERED BY CLAUDE · 台灣用語校準</footer>
 </div>
@@ -490,7 +517,7 @@ async function startTranslation(retryOnly) {
 }
 
 /* ── 免費引擎：Chrome 內建翻譯（在使用者自己的電腦上執行）── */
-// 常見的大陸用語 → 台灣用語。只放把握度高的詞；有歧義的詞（例如「地鐵」「運行」）刻意不放
+// 常見的中國用語 → 台灣用語。只放把握度高的詞；有歧義的詞（例如「地鐵」「運行」）刻意不放
 const TW_GLOSSARY = [
   ['互聯網', '網路'], ['網絡', '網路'], ['軟件', '軟體'], ['硬件', '硬體'], ['視頻', '影片'],
   ['服務器', '伺服器'], ['打印', '列印'], ['鼠標', '滑鼠'], ['默認', '預設'], ['出租車', '計程車'],
@@ -558,7 +585,7 @@ async function translateBatch(batch, ctx) {
   };
   const style = styleMap[$('styleSel').value];
 
-  const prompt = `將以下英文字幕譯成台灣繁體中文字幕。要求：台灣慣用詞彙（計程車、影片、網路，嚴禁大陸用語）；語氣${style}；簡潔易讀；句尾不加句號（？！…可保留）；過長句子用「 / 」分行；人名地名用台灣常見譯法；粗話照原文語氣譯出、不淨化。
+  const prompt = `將以下英文字幕譯成台灣繁體中文字幕。要求：台灣慣用詞彙（計程車、影片、網路，嚴禁中國用語）；語氣${style}；簡潔易讀；句尾不加句號（？！…可保留）；過長句子用「 / 」分行；人名地名用台灣常見譯法；粗話照原文語氣譯出、不淨化。
 
 ${ctx.length ? '前文（僅供理解）：' + ctx.join('｜') + '\n\n' : ''}${numbered}
 
